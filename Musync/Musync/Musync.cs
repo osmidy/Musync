@@ -12,7 +12,6 @@ namespace Musync
 {
     public partial class Musync : Form
     {
-        private bool run = false;
         private BlyncHelper device;
 
         private Queue<byte> data;
@@ -34,7 +33,6 @@ namespace Musync
         public Musync()
         {
             InitializeComponent();
-            data = new Queue<byte>();
             InitMusync();
         }
 
@@ -43,12 +41,24 @@ namespace Musync
             // Init loopback and attach event handler
             this.audioLoopback = new WasapiLoopbackCapture();
             this.audioLoopback.DataAvailable += HandleFrame;
+
+            // Init FFT parameters
+            this.data = new Queue<byte>();
             this.sampleRate = this.audioLoopback.WaveFormat.SampleRate;
             FFTHelper.SetSampleRate(this.sampleRate);
 
             // Init Blync light device
             this.device = new BlyncHelper(new BlynclightController());
             this.device.SetColor(LyncColor.White);
+
+            // Form closing event listener
+            this.FormClosing += Musync_FormClosing1;
+        }
+
+        private void Musync_FormClosing1(object sender, FormClosingEventArgs e)
+        {
+            this.DisposeMusync();
+            Application.Exit();
         }
 
         private void HandleFrame(object sender, WaveInEventArgs e)
@@ -76,7 +86,7 @@ namespace Musync
             int numSilentFrames = 0;
             bool silentStream = false;
 
-            while (this.run)
+            while (this.blyncOn)
             {
                 if (this.data.Count < this.fftLength)
                 {
@@ -139,7 +149,7 @@ namespace Musync
                 }
                 else
                 {
-                    ratio = upperPsd / lowerPsd;
+                    ratio = upperPsd / lowerPsd / 1.2 ;
                 }
 
                 if (ratio == 0)
@@ -154,7 +164,7 @@ namespace Musync
                     avgPsdRatio = ((avgPsdRatio * ratioCount) + ratio) / ++ratioCount;
                     numSilentFrames = 0;
                 }
-                // Now has extended period (3+ sec) of silence
+                // Now has extended period (~3 sec) of silence
                 else if (numSilentFrames > 3 * this.fftLength / this.sampleRate)
                 {
                     silentStream = true;
@@ -198,8 +208,6 @@ namespace Musync
 
             if (this.blyncOn)
             {
-                this.run = true;
-
                 this.InitMusync();
                 this.audioLoopback.StartRecording();
                 this.btnPlay.Text = "Stop";
@@ -208,18 +216,9 @@ namespace Musync
             }
             else
             {
-                this.run = false;
-
-                this.audioLoopback.StopRecording();
-                this.StopLight();
                 this.DisposeMusync();
                 this.btnPlay.Text = "Play";
             }
-        }
-
-        private void StopAudio()
-        {
-            this.DisposeMusync();
         }
 
         private void StopLight()
@@ -227,14 +226,13 @@ namespace Musync
             this.device.TurnOff();
         }
 
-        // TODO: Dispose on close
         private void DisposeMusync()
         {
+            this.audioLoopback.StopRecording();
             this.audioLoopback.Dispose();
 
             this.StopLight();
             this.data.Clear();
-            this.device = null;
         }
     }
 }

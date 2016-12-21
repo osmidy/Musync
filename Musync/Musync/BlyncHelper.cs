@@ -39,7 +39,7 @@ namespace Musync
         private LyncColor color;
 
         private double lastPulseTime;
-        private int minPulseDt = 250;
+        private int minPulseDt = 300;
 
         /// <summary>
         /// Creates a Blynchelper instance

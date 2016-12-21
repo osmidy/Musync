@@ -15,7 +15,7 @@ namespace Musync
     {
         public const int FftLength = 16384;
 
-        public const int MinBassFreq = 40;
+        public const int MinBassFreq = 20;
 
         public const int MaxBassFreq = 200;
 
@@ -29,23 +29,23 @@ namespace Musync
             {
                 return LyncColor.White;
             }
-            else if (val < 4)
+            else if (val > 4)
             {
                 return LyncColor.Yellow;
             }
-            else if (val < 4.5)
+            else if (val > 3.75)
             {
                 return LyncColor.Green;
             }
-            else if (val < 5)
+            else if (val > 3.5)
             {
                 return LyncColor.Cyan;
             }
-            else if (val < 5.5)
+            else if (val > 2.25)
             {
                 return LyncColor.Blue;
             }
-            else if (val < 6) {
+            else if (val > 2.0) {
                 return LyncColor.Magenta;
             }
             else
@@ -56,7 +56,7 @@ namespace Musync
 
         public static bool ShouldPulse(double psd)
         {
-            return psd > 0.75;
+            return psd > 0.80;
         }
 
         public static int FreqToIndex(double freq)
