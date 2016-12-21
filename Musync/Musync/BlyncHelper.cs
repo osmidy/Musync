@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Blynclight;
 using System.Threading;
+using System.Diagnostics;
 
 namespace Musync
 {
@@ -13,7 +14,7 @@ namespace Musync
     /// </summary>
     public enum LyncColor
     {
-        White = 0, Yellow, Cyan, Green, Magenta, Blue, Red
+        White = 0, Yellow, Green, Cyan, Blue, Magenta, Red
     }
 
     /// <summary>
@@ -37,6 +38,9 @@ namespace Musync
         /// </summary>
         private LyncColor color;
 
+        private double lastPulseTime;
+        private int minPulseDt = 250;
+
         /// <summary>
         /// Creates a Blynchelper instance
         /// </summary>
@@ -45,6 +49,7 @@ namespace Musync
         {
             this.controller = controller;
             this.numDevices = controller.InitBlyncDevices();
+            this.lastPulseTime = DateTime.UtcNow.TimeOfDay.TotalMilliseconds;
         }
 
 
@@ -60,31 +65,37 @@ namespace Musync
         {
             get { return this.numDevices; }
         }
+
+        public LyncColor Color
+        {
+            get { return this.color;    }
+            set { this.SetColor(value); }
+        }
         
         /// <summary>
         /// Creates a pulse effect on the desired Blynclight
         /// </summary>
         /// <param name="color">Current color of the light during pulse</param>
-        /// <param name="length">Total length of the pulse in seconds</param>
-        public void Pulse(double length)
+        /// <param name="length">Total length of the pulse in milliseconds</param>
+        public void Pulse(LyncColor color, int length = 40)
         {
-            int blinkLength = (int) (length * 1000);
-            if (blinkLength < 0)
-            {
-                return;
-            }
+            if (length < 0) return;
 
-            int pauseLength = 0;
+            var now = DateTime.UtcNow.TimeOfDay.TotalMilliseconds;
+            double dt = now - this.lastPulseTime;
+
+            if (dt < this.minPulseDt) return;
+
+            this.lastPulseTime = now;
 
             this.controller.ResetLight(0);
-            this.SetColor(this.color);
-            Thread.Sleep(blinkLength);
-            // Thread.Sleep(pauseLength);
+            Thread.Sleep(length);
+            this.SetColor(color);
         }
 
         public void Pulse()
         {
-            this.Pulse(.4);
+            this.Pulse(this.color);
         }
 
         public void SetColorAll(LyncColor color)
@@ -109,7 +120,7 @@ namespace Musync
         /// </summary>
         /// <param name="color">Color to be set on Blynclight</param>
         /// <param name="index">Index of the targeted device</param>
-        public void SetColor(LyncColor color, int index)
+        public void SetColor(LyncColor color, int index = 0)
         {
             switch(color)
             {
@@ -134,17 +145,9 @@ namespace Musync
                 case (LyncColor.Magenta):
                     controller.TurnOnMagentaLight(index);
                     break;
-                default:
-                    // Should never get here
-                    break;
             }
 
             this.color = color;
-        }
-
-        public void SetColor(LyncColor color)
-        {
-            this.SetColor(color, 0);
         }
     }
 }
