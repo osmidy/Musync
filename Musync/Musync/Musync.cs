@@ -34,6 +34,7 @@ namespace Musync
         {
             InitializeComponent();
             InitMusync();
+            this.btnPlay_Click(null, null);
         }
 
         private void InitMusync()

@@ -56,7 +56,7 @@ namespace Musync
 
         public static bool ShouldPulse(double psd)
         {
-            return psd > 0.80;
+            return psd > 0.7;
         }
 
         public static int FreqToIndex(double freq)
