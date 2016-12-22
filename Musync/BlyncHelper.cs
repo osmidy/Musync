@@ -14,7 +14,7 @@ namespace Musync
     /// </summary>
     public enum LyncColor
     {
-        White = 0, Yellow, Green, Cyan, Blue, Magenta, Red
+        Automatic = -1, White = 0, Yellow, Green, Cyan, Blue, Magenta, Red
     }
 
     /// <summary>
@@ -23,6 +23,11 @@ namespace Musync
     /// </summary>
     public class BlyncHelper
     {
+        /// <summary>
+        /// Number of LyncColors to choose from
+        /// </summary>
+        public const int NumColors = 7;
+
         /// <summary>
         /// Controller for this instance
         /// </summary>
@@ -114,7 +119,6 @@ namespace Musync
             }
         }
 
-
         /// <summary>
         /// Sets the color of the desired Blynclight
         /// </summary>
@@ -144,6 +148,9 @@ namespace Musync
                     break;                
                 case (LyncColor.Magenta):
                     controller.TurnOnMagentaLight(index);
+                    break;
+                default: // Setting Automatic; shouldn't get here
+                    Console.WriteLine("You tried to set Automatic as color!");
                     break;
             }
 
