@@ -77,7 +77,7 @@ namespace Musync
         /// </summary>
         /// <param name="color">Current color of the light during pulse</param>
         /// <param name="length">Total length of the pulse in milliseconds</param>
-        public void Pulse(LyncColor color, int length = 40)
+        public void Pulse(LyncColor color, int length = 25)
         {
             if (length < 0) return;
 
