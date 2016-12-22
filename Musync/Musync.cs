@@ -7,8 +7,6 @@ using System.Threading;
 using System.Diagnostics;
 using AForge.Math;
 using System.Collections.Generic;
-using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
 
 namespace Musync
 {
@@ -30,9 +28,7 @@ namespace Musync
         // Loopback to read in system audio output
         private WasapiLoopbackCapture audioLoopback;
 
-        public MMDeviceEnumerator deviceEnumerator;
-
-        public MMDevice audioEndpoint;
+        private readonly Random blyncRand = new Random();
 
         public Musync()
         {
@@ -45,12 +41,7 @@ namespace Musync
         {
             // Init loopback and attach event handler
             this.audioLoopback = new WasapiLoopbackCapture();
-            this.audioLoopback.ShareMode = AudioClientShareMode.Shared;
-            this.audioLoopback.DataAvailable += this.HandleFrame;
-
-            // Device enumerator, listener for audio endpoint change
-            this.deviceEnumerator = new MMDeviceEnumerator();
-            this.audioEndpoint = this.deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            this.audioLoopback.DataAvailable += HandleFrame;
 
             // Init FFT parameters
             this.data = new Queue<byte>();
@@ -62,13 +53,10 @@ namespace Musync
             this.device.SetColor(LyncColor.White);
 
             // Form closing event listener
-            this.FormClosing += Musync_FormClosing;
-
-            // Begin listening to output stream
-            this.audioLoopback.StartRecording();
+            this.FormClosing += Musync_FormClosing1;
         }
 
-        private void Musync_FormClosing(object sender, FormClosingEventArgs e)
+        private void Musync_FormClosing1(object sender, FormClosingEventArgs e)
         {
             this.DisposeMusync();
         }
@@ -78,13 +66,12 @@ namespace Musync
             var n = e.BytesRecorded;
 
             // Average left and right channel amplitudes
-            lock (dataLock)
+            for (int i = 0; i < n; i += 2)
             {
-
-                for (int i = 0; i < n; i += 2)
+                byte avg = ((byte)((int)e.Buffer[i] + (int)e.Buffer[i + 1]));
+                avg >>= 2;
+                lock (dataLock)
                 {
-                    byte avg = (byte)(e.Buffer[i] + e.Buffer[i + 1]);
-                    avg >>= 2;
                     this.data.Enqueue(avg);
                 }
             }
@@ -110,9 +97,9 @@ namespace Musync
                 int n = this.fftLength;
                 Complex[] complexData = new Complex[n];
 
-                lock (dataLock)
+                for (int i = 0; i < this.fftLength; i++)
                 {
-                    for (int i = 0; i < this.fftLength; i++)
+                    lock (dataLock)
                     {
                         complexData[i] = new Complex(this.data.Dequeue(), 0);
                     }
@@ -128,7 +115,8 @@ namespace Musync
                 for (int i = minBassIndex; i < maxBassIndex; i++)
                 {
                     double mag = complexData[i].Magnitude;
-                    
+
+
                     if (mag > peakBassMag)
                     {
                         peakBassMag = mag;
@@ -148,7 +136,6 @@ namespace Musync
                     double mag = complexData[i].Magnitude;
                     lowerPsd += mag * mag;
                 }
-
                 for (int i = bound2; i < bound3; i++)
                 {
                     double mag = complexData[i].Magnitude;
@@ -222,6 +209,7 @@ namespace Musync
             if (this.blyncOn)
             {
                 this.InitMusync();
+                this.audioLoopback.StartRecording();
                 this.btnPlay.Text = "Stop";
 
                 ThreadPool.QueueUserWorkItem(this.HandleFft);
@@ -240,11 +228,17 @@ namespace Musync
 
         private void DisposeMusync()
         {
-            this.blyncOn = false;
+            if (this.audioLoopback != null)
+            {
+                this.audioLoopback.Dispose();
+                this.audioLoopback = null;
+            }
 
-            this.audioLoopback.Dispose();
-
-            this.StopLight();
+            if (this.device != null)
+            {
+                this.StopLight();
+                this.device = null;
+            }
             this.data.Clear();
         }
     }
