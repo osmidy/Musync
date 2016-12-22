@@ -7,6 +7,7 @@ using System.Threading;
 using System.Diagnostics;
 using AForge.Math;
 using System.Collections.Generic;
+using NAudio.CoreAudioApi;
 
 namespace Musync
 {
@@ -28,7 +29,9 @@ namespace Musync
         // Loopback to read in system audio output
         private WasapiLoopbackCapture audioLoopback;
 
-        private readonly Random blyncRand = new Random();
+        private MMDeviceEnumerator deviceEnumerator;
+
+        private string audioEndpointId;
 
         public Musync()
         {
@@ -40,8 +43,11 @@ namespace Musync
         private void InitMusync()
         {
             // Init loopback and attach event handler
-            this.audioLoopback = new WasapiLoopbackCapture();
-            this.audioLoopback.DataAvailable += HandleFrame;
+            this.SetLoopbackSource();
+
+            // Track current default audio source
+            this.deviceEnumerator = new MMDeviceEnumerator();
+            this.audioEndpointId = this.deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia).ID;
 
             // Init FFT parameters
             this.data = new Queue<byte>();
@@ -53,10 +59,10 @@ namespace Musync
             this.device.SetColor(LyncColor.White);
 
             // Form closing event listener
-            this.FormClosing += Musync_FormClosing1;
+            this.FormClosing += Musync_FormClosing;
         }
 
-        private void Musync_FormClosing1(object sender, FormClosingEventArgs e)
+        private void Musync_FormClosing(object sender, FormClosingEventArgs e)
         {
             this.DisposeMusync();
         }
@@ -88,11 +94,24 @@ namespace Musync
 
             while (this.blyncOn)
             {
+                // Check for change in audio endpoint
+                var id = this.deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia).ID;
+                if (!id.Equals(this.audioEndpointId))
+                {
+                    this.audioEndpointId = id;
+
+                    // Reassign loopback
+                    this.SetLoopbackSource();
+
+                    Thread.Sleep(25);
+                    continue;
+                }
+
                 if (this.data.Count < this.fftLength)
                 {
                     Thread.Sleep(25);
                     continue;
-                }
+                }                
 
                 int n = this.fftLength;
                 Complex[] complexData = new Complex[n];
@@ -202,6 +221,15 @@ namespace Musync
             }
         }
 
+        private void SetLoopbackSource()
+        {
+            if (this.audioLoopback != null) { this.audioLoopback.Dispose(); }
+            this.audioLoopback = new WasapiLoopbackCapture();
+            this.audioLoopback.ShareMode = AudioClientShareMode.Shared;
+            this.audioLoopback.DataAvailable += this.HandleFrame;
+            this.audioLoopback.StartRecording();
+        }
+
         private void btnPlay_Click(object sender, EventArgs e)
         {
             this.blyncOn = !this.blyncOn;
@@ -209,7 +237,6 @@ namespace Musync
             if (this.blyncOn)
             {
                 this.InitMusync();
-                this.audioLoopback.StartRecording();
                 this.btnPlay.Text = "Stop";
 
                 ThreadPool.QueueUserWorkItem(this.HandleFft);
@@ -231,7 +258,6 @@ namespace Musync
             if (this.audioLoopback != null)
             {
                 this.audioLoopback.Dispose();
-                this.audioLoopback = null;
             }
 
             if (this.device != null)
@@ -239,6 +265,7 @@ namespace Musync
                 this.StopLight();
                 this.device = null;
             }
+
             this.data.Clear();
         }
     }
